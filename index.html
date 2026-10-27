@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>xBloom Send</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one narrow column, recipe card then two steps (sign in, send) */
+:root{
+  --bg:#f6f4f1;--panel:#ffffff;--ink:#22201d;--muted:#6e6860;--line:#e3ddd5;
+  --accent:#9a4a22;--ok:#2f6b3a;--bad:#a3302b;--soft:#efe9e2;
+  --display:"Fraunces",Georgia,serif;--body:"IBM Plex Sans",system-ui,sans-serif;--mono:"IBM Plex Mono",ui-monospace,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{--bg:#171513;--panel:#211e1b;--ink:#efe9e2;--muted:#a49b90;--line:#38332e;--accent:#e08a5a;--ok:#7fc18c;--bad:#ec8a84;--soft:#2a2622;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--body);
+  padding:max(20px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(28px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+main{max-width:560px;margin:0 auto;display:grid;gap:16px}
+h1{font:600 28px/1.15 var(--display);margin:0}
+h2{font:600 13px/1.2 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+.sub{color:var(--muted);margin:4px 0 0}
+section{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+.rname{font:600 19px/1.25 var(--display);margin:0 0 6px}
+.meta{display:flex;flex-wrap:wrap;gap:6px 14px;font:13px var(--mono);color:var(--muted)}
+.setup{margin:10px 0 0;font-size:13px;color:var(--muted)}
+.tw{overflow-x:auto;margin-top:12px}
+table{border-collapse:collapse;width:100%;font:13px var(--mono);font-variant-numeric:tabular-nums}
+th,td{text-align:right;padding:6px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font:500 11px var(--body);color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+input{width:100%;font:15px var(--body);padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+input:focus,button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button{font:600 15px var(--body);border:0;border-radius:10px;padding:13px 16px;cursor:pointer;background:var(--accent);color:#fff;width:100%;margin-top:12px}
+button.ghost{background:var(--soft);color:var(--ink)}
+button:disabled{opacity:.5;cursor:default}
+.msg{margin:10px 0 0;font-size:14px;min-height:1em}
+.msg.ok{color:var(--ok)}.msg.bad{color:var(--bad)}
+.issues{margin:10px 0 0;padding-left:18px;color:var(--bad);font-size:14px}
+.row{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.pill{font:500 12px var(--body);padding:3px 9px;border-radius:99px;background:var(--soft);color:var(--muted)}
+.pill.ok{color:var(--ok)}.pill.bad{color:var(--bad)}
+.link{word-break:break-all;font:13px var(--mono);background:var(--soft);padding:10px;border-radius:8px;margin-top:8px}
+a{color:var(--accent)}
+.foot{font-size:12px;color:var(--muted);text-align:center}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>xBloom Send</h1>
+    <p class="sub">Recipes from Coffee Lab, straight to your xBloom account.</p>
+  </header>
+
+  <section id="recipeBox" aria-live="polite">
+    <h2>Recipe</h2>
+    <div id="noRecipe">
+      <p>No recipe in this link. Open a recipe in Coffee Lab and tap <b>Send to xBloom</b>.</p>
+    </div>
+    <div id="recipe" hidden>
+      <div class="row"><p class="rname" id="rName"></p><span class="pill" id="checkPill"></span></div>
+      <div class="meta" id="rMeta"></div>
+      <p class="setup" id="rSetup"></p>
+      <div class="tw"><table><thead><tr><th>Pour</th><th>ml</th><th>Σ ml</th><th>°C</th><th>Flow</th><th>Pattern</th><th>Pause</th><th>Vib</th></tr></thead><tbody id="rPours"></tbody></table></div>
+      <ul class="issues" id="issues" hidden></ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>1 · xBloom account</h2>
+    <form id="authForm" autocomplete="on">
+      <label for="em">Email</label><input id="em" type="email" autocomplete="username" required>
+      <label for="pw">Password</label><input id="pw" type="password" autocomplete="current-password" required>
+      <button id="loginBtn" type="submit">Sign in</button>
+      <p class="msg" id="authMsg"></p>
+    </form>
+    <div id="authDone" hidden>
+      <div class="row"><span>Signed in<span id="who"></span></span><button class="ghost" id="outBtn" type="button" style="width:auto;margin:0">Sign out</button></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2 · Send</h2>
+    <button id="sendBtn" type="button" disabled>Send to xBloom</button>
+    <p class="msg" id="sendMsg"></p>
+    <div id="result" hidden>
+      <p><b>Verified on xBloom.</b> It's in <i>My Recipes</i> in the xBloom app.</p>
+      <div class="link" id="shareLink"></div>
+      <button class="ghost" id="copyBtn" type="button">Copy share link</button>
+    </div>
+  </section>
+
+  <p class="foot">Your password goes only to xBloom. This page keeps just the sign-in token on this device.</p>
+</main>
+
+<script src="xcloud.js"></script>
+<script>
+"use strict";
+var $=function(id){return document.getElementById(id)};
+var TOKEN_KEY="xbsend.auth";
+// Pattern codes as used by Omar's existing sender (map A).
+var PATTERN={center:1,spiral:2,circular:3};
+var LIMITS={dose:[5,31],grind:[1,80],pours:[2,5],ml:[10,127],temp:[40,95],pause:[0,60],flow:[3.0,3.5]};
+var rec=null,auth=null;
+
+function store(){try{var s=localStorage;s.setItem("_t","1");s.removeItem("_t");return s}catch(e){return null}}
+function loadAuth(){var s=store();if(!s)return null;try{return JSON.parse(s.getItem(TOKEN_KEY)||"null")}catch(e){return null}}
+function saveAuth(a){var s=store();if(s)try{s.setItem(TOKEN_KEY,JSON.stringify(a))}catch(e){}}
+function forgetAuth(){var s=store();if(s)try{s.removeItem(TOKEN_KEY)}catch(e){}}
+function msg(id,t,cls){var e=$(id);e.textContent=t||"";e.className="msg"+(cls?" "+cls:"")}
+function isAuthErr(m){return /500|expired|token|login|illegal|登录|非法/i.test(m||"")}
+function total(r){return r.pours.reduce(function(a,p){return a+Number(p.ml)},0)}
+
+function decode(hash){
+  var m=/[#&]r=([A-Za-z0-9_\-]+)/.exec(hash||"");if(!m)return null;
+  var b=m[1].replace(/-/g,"+").replace(/_/g,"/");while(b.length%4)b+="=";
+  var bytes=Uint8Array.from(atob(b),function(c){return c.charCodeAt(0)});
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+
+function validate(r){
+  var out=[],T=total(r);
+  function rng(v,k,label){if(!(typeof v==="number"&&isFinite(v))||v<LIMITS[k][0]||v>LIMITS[k][1])out.push(label+" must be "+LIMITS[k][0]+"–"+LIMITS[k][1]+" (got "+v+").")}
+  if(!r.name||!String(r.name).trim())out.push("Recipe needs a name.");
+  rng(r.dose,"dose","Dose (g)");
+  if(!r.external)rng(r.grind,"grind","Built-in grind");
+  if(!r.external&&!(r.rpm>=60&&r.rpm<=120))out.push("RPM must be 60–120 (got "+r.rpm+").");
+  if(!Array.isArray(r.pours)||r.pours.length<LIMITS.pours[0]||r.pours.length>LIMITS.pours[1])out.push("Use 2–5 pours.");
+  else r.pours.forEach(function(p,i){var n=i?"Pour "+(i+1):"Bloom";
+    rng(p.ml,"ml",n+" volume");rng(p.temp,"temp",n+" temperature");rng(p.pause,"pause",n+" pause");rng(p.flow,"flow",n+" flow");
+    if(!(p.pattern in PATTERN))out.push(n+": pattern must be spiral, circular or center.");
+    if(i===0&&p.pattern==="center")out.push("Bloom can't be a center pour.");
+    if(p.pause!==Math.round(p.pause))out.push(n+": pause must be whole seconds.");});
+  var gw=Math.round(T/r.dose*2)/2;
+  if(Math.abs(gw*r.dose-T)>1)out.push("Total "+T+" ml isn't dose × a half-step ratio (xBloom stores ratio in 0.5 steps). Closest: "+(gw*r.dose)+" ml.");
+  if(r.cup==="omni"&&r.pours.some(function(p){return p.ml>150}))out.push("Omni holds ~160 ml: keep each pour ≤150 ml.");
+  return {issues:out,grandWater:gw,total:T};
+}
+
+function toVo(r,gw){
+  return {theName:String(r.name).trim().slice(0,40),dose:r.dose,grandWater:gw,grinderSize:r.external?50:r.grind,rpm:r.external?100:r.rpm,
+    cupType:r.cup==="omni"?2:3,adaptedModel:1,isEnableBypassWater:2,isSetGrinderSize:r.external?2:1,theColor:r.color||"#9A4A22",theSubsetId:0,
+    bypassTemp:85.0,bypassVolume:5.0,subSetType:2,appPlace:[4],createTimeStamp:Date.now(),isShortcuts:2,
+    pourList:r.pours.map(function(p,i){return{theName:i?"Pour "+(i+1):"Bloom",volume:p.ml,temperature:p.temp,flowRate:p.flow,pattern:PATTERN[p.pattern],
+      pausing:p.pause,isEnableVibrationBefore:p.before?1:2,isEnableVibrationAfter:p.after?1:2}})};
+}
+
+function render(){
+  if(!rec)return;
+  $("noRecipe").hidden=true;$("recipe").hidden=false;
+  $("rName").textContent=rec.name;
+  var v=validate(rec);
+  var meta=[rec.dose+" g","1:"+v.grandWater,v.total+" ml",rec.external?("External grind"+(rec.grinderLabel?": "+rec.grinderLabel:"")+" · xBloom grinder off"):("Grind "+rec.grind+" · "+rec.rpm+" RPM"),rec.cup==="omni"?"Omni dripper":"Other dripper"];
+  $("rMeta").innerHTML="";meta.forEach(function(t){var s=document.createElement("span");s.textContent=t;$("rMeta").appendChild(s)});
+  $("rSetup").textContent=rec.setup||"";$("rSetup").hidden=!rec.setup;
+  var tb=$("rPours");tb.innerHTML="";var cum=0;
+  rec.pours.forEach(function(p,i){cum+=p.ml;var tr=document.createElement("tr");
+    [i?"Pour "+(i+1):"Bloom",p.ml,cum,p.temp,p.flow,p.pattern,p.pause+" s",(p.before?"before":"")+(p.before&&p.after?"+":"")+(p.after?"after":"")||"off"].forEach(function(c){var td=document.createElement("td");td.textContent=c;tr.appendChild(td)});tb.appendChild(tr)});
+  var ul=$("issues");ul.innerHTML="";ul.hidden=!v.issues.length;
+  v.issues.forEach(function(t){var li=document.createElement("li");li.textContent=t;ul.appendChild(li)});
+  $("checkPill").textContent=v.issues.length?"Fails check":"Passes check";$("checkPill").className="pill "+(v.issues.length?"bad":"ok");
+  $("sendBtn").disabled=!!v.issues.length||!auth;
+}
+
+function showSigned(a){auth=a;$("authForm").hidden=true;$("authDone").hidden=false;$("who").textContent=a.name?" as "+a.name:"";render()}
+function showSignedOut(){auth=null;$("authForm").hidden=false;$("authDone").hidden=true;$("sendBtn").disabled=true}
+
+$("authForm").addEventListener("submit",function(e){e.preventDefault();
+  var em=$("em").value.trim(),pw=$("pw").value;if(!em||!pw){msg("authMsg","Enter email and password.","bad");return}
+  $("loginBtn").disabled=true;msg("authMsg","Signing in…");
+  XCLOUD.login(em,pw).then(function(a){$("pw").value="";saveAuth(a);showSigned(a);msg("authMsg","")})
+   .catch(function(err){msg("authMsg",err.message,"bad")}).then(function(){$("loginBtn").disabled=false});
+});
+$("outBtn").onclick=function(){forgetAuth();showSignedOut()};
+
+function same(sent,got){
+  if(!got||!Array.isArray(got.pourList)||got.pourList.length!==sent.pourList.length)return false;
+  if(Number(got.dose)!==sent.dose||Number(got.grandWater)!==sent.grandWater)return false;
+  return sent.pourList.every(function(p,i){var g=got.pourList[i];return Number(g.volume)===p.volume&&Number(g.temperature)===p.temperature&&Number(g.pausing)===p.pausing&&Number(g.pattern)===p.pattern});
+}
+
+$("sendBtn").onclick=function(){
+  if(!rec||!auth)return;var v=validate(rec);if(v.issues.length){render();return}
+  var vo=toVo(rec,v.grandWater),b=this;b.disabled=true;$("result").hidden=true;msg("sendMsg","Saving to your xBloom account…");
+  var ctrl=setTimeout(function(){msg("sendMsg","xBloom is slow to answer. Waiting up to 30 s…")},8000);
+  XCLOUD.create(auth,vo).then(function(id){msg("sendMsg","Saved. Reading it back to verify…");return XCLOUD.detailById(id)})
+  .then(function(got){
+    if(!same(vo,got))throw new Error("Saved, but the read-back doesn't match what was sent. Check the recipe in the xBloom app before brewing.");
+    var link=got.shareRecipeLink;if(!link)throw new Error("Saved and verified, but xBloom returned no share link.");
+    $("shareLink").textContent=link;$("result").hidden=false;msg("sendMsg","Sent and verified.","ok");
+  }).catch(function(e){var m=e.message;if(isAuthErr(m)){forgetAuth();showSignedOut();m="Your xBloom session expired (signing in on the xBloom phone app can end it). Sign in again, then tap Send."}msg("sendMsg",m,"bad")})
+  .then(function(){clearTimeout(ctrl);b.disabled=!auth});
+};
+$("copyBtn").onclick=function(){var t=$("shareLink").textContent;
+  (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){msg("sendMsg","Link copied.","ok")},function(){var r=document.createRange();r.selectNodeContents($("shareLink"));var s=getSelection();s.removeAllRanges();s.addRange(r);msg("sendMsg","Select and copy the link above.")})};
+
+try{rec=decode(location.hash)}catch(e){msg("sendMsg","This link's recipe couldn't be read. Re-open it from Coffee Lab.","bad")}
+var a=loadAuth();if(a&&a.token&&a.memberId)showSigned(a);else showSignedOut();
+render();
+</script>
+</body>
+</html>
